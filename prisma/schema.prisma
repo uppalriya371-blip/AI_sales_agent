@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  oauthTokens OAuthToken[]
+  emailDrafts EmailDraft[]
+}
+
+model Lead {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  company   String?
+  jobTitle  String?
+  message   String
+  source    String   @default("Website Contact Form")
+  status    LeadStatus @default(NEW)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  analysis    AIAnalysis?
+  emailDrafts EmailDraft[]
+
+  @@index([email])
+  @@index([createdAt])
+}
+
+enum LeadStatus {
+  NEW
+  ANALYZED
+  EMAIL_DRAFTED
+  DRAFT_CREATED
+  SENT
+  ARCHIVED
+}
+
+model AIAnalysis {
+  id                   String   @id @default(cuid())
+  leadId               String   @unique
+  lead                 Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  intent               String
+  leadScore            String
+  painPoints           Json
+  recommendedApproach  String
+  emailSubject         String
+  emailBody            String   @db.Text
+  createdAt            DateTime @default(now())
+}
+
+model EmailDraft {
+  id           String   @id @default(cuid())
+  leadId       String
+  lead         Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gmailDraftId String?
+  recipient    String
+  subject      String
+  body         String   @db.Text
+  status       DraftStatus @default(DRAFT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([leadId])
+}
+
+enum DraftStatus {
+  DRAFT
+  SYNCED
+  SENT
+  ERROR
+}
+
+model OAuthToken {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  provider     String   @default("google")
+  accessToken  String   @db.Text
+  refreshToken String   @db.Text
+  expiryDate   DateTime
+  scope        String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, provider])
+}
